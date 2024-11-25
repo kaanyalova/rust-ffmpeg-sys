@@ -247,7 +247,7 @@ fn build() -> io::Result<()> {
 
                 let cross_prefix = ndk_toolchain_path.join("bin").join(prefix);
 
-                configure.arg(format!("--cross-preffix={}-", cross_prefix));
+                configure.arg(format!("--cross-prefix={}-", cross_prefix));
 
                 configure.arg(format!("--sysroot={}", ndk_toolchain_path.join("sysroot")));
             }
