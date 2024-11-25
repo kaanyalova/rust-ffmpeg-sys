@@ -7,7 +7,7 @@ use std::env;
 use std::fmt::Write as FmtWrite;
 use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str;
 
@@ -227,6 +227,32 @@ fn build() -> io::Result<()> {
         let compiler = compiler.path().file_stem().unwrap().to_str().unwrap();
         if let Some(suffix_pos) = compiler.rfind('-') {
             let prefix = compiler[0..suffix_pos].trim_end_matches("-wr"); // "wr-c++" compiler
+
+            #[cfg(target_os = "android")]
+            {
+                let ndk_dir = std::env::var("NDK_HOME")
+                    .expect("NDK_HOME env variable needs to be set for the Android build");
+
+                let ndk_os_arch = format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH);
+
+                let ndk_toolchain_path = Path::new(&ndk_dir)
+                    .join("toolchains/llvm/prebuilt/")
+                    .join(ndk_os_arch);
+
+                assert!(
+                    ndk_toolchain_path.exists(),
+                    "No android toolchain exists at dir {}",
+                    &ndk_toolchain_path.to_string_lossy()
+                );
+
+                let cross_prefix = ndk_toolchain_path.join("bin").join(prefix);
+
+                configure.arg(format!("--cross-preffix={}-", cross_prefix));
+
+                configure.arg(format!("--sysroot={}", ndk_toolchain_path.join("sysroot")));
+            }
+
+            #[cfg(not(target_os = "android"))]
             configure.arg(format!("--cross-prefix={}-", prefix));
         }
         configure.arg(format!(
@@ -235,6 +261,10 @@ fn build() -> io::Result<()> {
         ));
         configure.arg(format!("--target_os={}", get_ffmpet_target_os()));
     }
+
+    // set sysroot on Android
+    //#[cfg(target_os = "android")] {
+    //}
 
     // control debug build
     if env::var("DEBUG").is_ok() {
